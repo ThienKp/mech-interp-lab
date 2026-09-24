@@ -8,36 +8,37 @@ This repository documents my progression from fundamental mechanistic interpreta
 
 The central question I am interested in is:
 
-> How do the computational mechanisms and architectural choices of
-> transformer models affect our ability to understand and control
-> their internal representations?
+> How do the computational mechanisms and architectural choices of transformer models affect our ability to understand and control their internal representations?
 
 I am particularly interested in:
 
-- circuits and algorithmic structure
-- feature representations and superposition
-- sparse autoencoders
-- causal interventions and steering
-- architectural choices that affect interpretability
+* Circuits and algorithmic structure
+* Feature representations and superposition
+* Sparse autoencoders
+* Causal interventions and activation steering
+* Architectural choices that affect interpretability
 
 ## Research Roadmap
 
-| Project | Topic | Status |
-|---|---|---|
-| 01 | Induction Heads | In progress |
-| 02 | Superposition | Planned |
-| 03 | Sparse Autoencoders | Planned |
-| 04 | Causal Steering | Planned |
-| 05 | Architecture Interpretability | Planned |
+| Project                     | Topic                         | Status      |
+| --------------------------- | ----------------------------- | ----------- |
+| [01](#01--induction-heads)  | Induction Heads               | In progress |
+| 02                          | Superposition                 | Planned     |
+| 03                          | Sparse Autoencoders           | Planned     |
+| 04                          | Causal Steering               | Planned     |
+| 05                          | Architecture Interpretability | Planned     |
 
 ## 01 — Induction Heads
 
 [Read the investigation →](01_induction_heads/README.md)
 
-Focus:
-- reproduce and capture induction head phenomena
-- understand attention-only circuits
-- investigate causal evidence for induction behavior
+### Focus
+
+* Reproduce the induction head phenomenon
+* Understand the underlying attention circuit
+* Identify the components responsible for induction behavior
+* Use causal interventions to test the role of individual heads
+* Analyze unexpected results and failure modes
 
 <!-- ## 02 — Superposition
 
@@ -77,18 +78,33 @@ Focus:
 
 ## Methodology
 
-For each investigation, I aim to follow a research workflow:
+For each investigation, I aim to follow a research-oriented workflow:
 
 1. Read the relevant literature
 2. Formulate a concrete hypothesis or research question
-3. Reproduce a relevant result
+3. Reproduce a relevant result or phenomenon
 4. Implement the required methodology independently
 5. Run controlled experiments
-6. Analyze failures and unexpected results
-7. Compare against prior work
-8. Document conclusions and limitations
+6. Analyze unexpected results and failure modes
+7. Compare findings with prior work
+8. Document conclusions, limitations, and open questions
 
-The goal is not simply to reproduce papers, but to develop the ability to formulate and investigate mechanistic questions about neural networks.
+The goal is not simply to reproduce existing results, but to develop the ability to formulate and investigate mechanistic hypotheses about neural networks.
+
+## Repository Structure
+
+Each investigation is organized as an independent project containing its own experiments, analysis, and documentation.
+
+```text
+.
+├── 01_induction_heads/
+│   ├── model_db/
+│   ├── src/
+│   └── README.md
+├── ...
+├── pyproject.toml
+└── README.md
+```
 
 ## Environment
 
@@ -96,3 +112,6 @@ Python environment managed with [uv](https://docs.astral.sh/uv/)
 
 ```bash
 uv sync
+```
+
+Individual investigations may have additional requirements or instructions documented in their respective `README.md` files.
