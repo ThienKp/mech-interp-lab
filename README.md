@@ -32,7 +32,7 @@ I am particularly interested in:
 
 ## 01 — Induction Heads
 
-[Read the investigation →](./01_induction_heads/)
+[Read the investigation →](01_induction_heads/README.md)
 
 Focus:
 - reproduce and capture induction head phenomena

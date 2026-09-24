@@ -8,3 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+submit.sh
+.DS_Store
+
+# Data files
+01_induction_heads/model_db/*
