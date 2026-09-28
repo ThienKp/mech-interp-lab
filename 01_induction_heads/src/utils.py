@@ -12,6 +12,7 @@ D_HEAD: int = D_MODEL // N_HEADS
 N_LAYERS: int = 2
 CONTEXT_LENGTH: int = 64
 MODEL_DATABASE: str = "01_induction_heads/model_db"
+VISUAL_DATABASE: str = "01_induction_heads/visualizations"
 REPEATED: bool = False
 
 def ensure_model_database() -> None:
@@ -19,6 +20,12 @@ def ensure_model_database() -> None:
     Ensure that the model database exists. If it doesn't, create it.
     """
     os.makedirs(MODEL_DATABASE, exist_ok=True)
+
+def ensure_visualizations() -> None:
+    """
+    Ensure that the visualizations directory exists. If it doesn't, create it.
+    """
+    os.makedirs(VISUAL_DATABASE, exist_ok=True)
 
 def generate_new_save() -> str:
     """
@@ -46,3 +53,9 @@ def get_metrics_filename(pathname: str) -> str:
     Generate a metrics filename based on the provided pathname.
     """
     return os.path.join(MODEL_DATABASE, pathname, "metrics.json")
+
+def get_visualization_filename(filename: str) -> str:
+    """
+    Generate a visual filename in the visualization directory.
+    """
+    return os.path.join(VISUAL_DATABASE, filename)

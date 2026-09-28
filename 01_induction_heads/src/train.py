@@ -4,7 +4,7 @@ import torch
 from tqdm import trange
 
 from model import AttentionModel
-from data_synthesis import generate_sequence, generate_random_token
+from data_synthesis import generate_sequence, generate_random_token, generate_multiple_patterns
 from utils import SEED, CONTEXT_LENGTH, VOCAB_SIZE, VOCAB_LIST, D_MODEL, N_HEADS, N_LAYERS, REPEATED, ensure_model_database, generate_new_save, get_config_filename, get_model_filename
 
 random.seed(SEED)
@@ -17,6 +17,7 @@ def train_model(
         batch_size: int = 64,
         seq_length: int = CONTEXT_LENGTH,
         pattern_chance: float = 0.9,
+        miscellaneous_chance: bool = False,
         to_save: bool = True
     ) -> None:
     model.train()
@@ -24,10 +25,21 @@ def train_model(
         # Generate a random sequence of tokens
         sequence = []
         for _ in range(batch_size):
-            if random.random() < pattern_chance:
-                sequence += generate_sequence(seq_length, repeated=REPEATED)
+            if miscellaneous_chance:
+                number = random.random()
+                if number < pattern_chance / 3:
+                    sequence += generate_multiple_patterns(seq_length, num_patterns=2, repeated=REPEATED)
+                elif number < pattern_chance / 3 * 2:
+                    sequence += generate_multiple_patterns(seq_length, num_patterns=3, repeated=REPEATED)
+                elif number < pattern_chance:
+                    sequence += generate_multiple_patterns(seq_length, num_patterns=4, repeated=REPEATED)
+                else:
+                    sequence += generate_random_token(seq_length, repeated=REPEATED)
             else:
-                sequence += generate_random_token(seq_length, repeated=REPEATED)
+                if random.random() < pattern_chance:
+                    sequence += generate_sequence(seq_length, repeated=REPEATED)
+                else:
+                    sequence += generate_random_token(seq_length, repeated=REPEATED)
         inputs = torch.tensor(sequence, dtype=torch.long).view(batch_size, seq_length) # (batch_size, seq_length)
         targets = inputs[:, 1:] # Shifted target for next token prediction
         inputs = inputs[:, :-1]
@@ -64,7 +76,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     criterion = torch.nn.CrossEntropyLoss()
 
-    train_model(model, optimizer, criterion, num_epochs=100000)
+    train_model(model, optimizer, criterion, num_epochs=100000, miscellaneous_chance=True)
 
     sequence = generate_sequence(CONTEXT_LENGTH, repeated=REPEATED)
     text_sequence = " ".join(str(VOCAB_LIST[token]) for token in sequence)

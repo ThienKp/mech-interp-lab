@@ -38,6 +38,7 @@ class AttentionModel(nn.Module):
 
         Args:
             x (torch.Tensor): Input tensor of shape (batch_size, seq_length).
+            ablate_heads (list[tuple]): List of coordination of ablated heads.
 
         Returns:
             torch.Tensor: Output tensor after passing through the attention heads.

@@ -15,7 +15,7 @@ def main() -> None:
     args = parser.parse_args()
     root_dir = os.getcwd()
     experiment_path = [
-        os.path.join(root_dir, "01_induction_heads", "src", "analyze.py"),
+        os.path.join(root_dir, "01_induction_heads", "src", "visualize.py"),
     ]
 
     script = experiment_path[args.experiment - 1]

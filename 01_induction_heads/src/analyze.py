@@ -2,15 +2,20 @@ import json
 import torch
 
 from model import AttentionModel
-from data_synthesis import generate_sequence_parts, generate_sequence
+from data_synthesis import generate_random_token
 from utils import CONTEXT_LENGTH, VOCAB_SIZE, REPEATED, N_HEADS, N_LAYERS, get_model_filename, get_metrics_filename
 
 # Directory name for retrieving the model
-DIR_NAME: str = "MHA_without_replacement"
+DIR_NAME: str = "mixing_pattern"
 
-def acc_and_loss(logits, targets, num_samples, second_pattern_index, pattern_list) -> tuple:
+
+def acc_and_loss(
+        logits: torch.Tensor,
+        targets: torch.Tensor,
+        num_samples: int,
+        pattern_list: list) -> tuple:
     """
-    Calculate accuracy and loss for next-token prediction.
+    Calculate accuracy and loss for next-token and induction-position prediction.
 
     Args:
         logits (torch.Tensor): Logits output from the model of shape (batch_size, seq_length, vocab_size).
@@ -34,25 +39,32 @@ def acc_and_loss(logits, targets, num_samples, second_pattern_index, pattern_lis
     print(f"Model Next-token Loss: {overall_loss:.4f}")
 
     # Induction-position accuracy and loss
-    correct_predictions = 0
-    total_predictions = 0
-    loss = 0
-    criterion = torch.nn.CrossEntropyLoss(reduction='sum')
+    correct_predictions = [0, 0, 0, 0]
+    pattern_length = len(pattern_list[0])
+    total_predictions = (pattern_length - 1) * num_samples
+    loss = [0, 0, 0, 0]
+    criterion = torch.nn.CrossEntropyLoss()
 
-    for i in range(num_samples):
-        second_start = second_pattern_index[i]
-        pattern = pattern_list[i]
-        correct_predictions += (logits[i, second_start:second_start + len(pattern) - 1].argmax(dim=-1) == torch.tensor(pattern[1:])).sum().item()
-        loss += criterion(logits[i, second_start:second_start + len(pattern) - 1], torch.tensor(pattern[1:])).item()
-        total_predictions += len(pattern) - 1
-    accuracy = correct_predictions / total_predictions if total_predictions > 0 else 0
-    loss /= total_predictions if total_predictions > 0 else 1
-    print(f"Induction-position accuracy: {accuracy * 100:.2f}%")
-    print(f"Induction-position loss: {loss:.4f}")
+    for i in range(4):
+        pred = logits[:, i * pattern_length:(i + 1) * pattern_length - 1]
+        correct_predictions[i] = (pred.argmax(dim=-1) == torch.tensor(pattern_list)[:, 1:]).sum().item()
+        loss[i] = criterion(pred.transpose(1, 2), torch.tensor(pattern_list)[:, 1:]).item()
 
-    return overall_accuracy, overall_loss, accuracy, loss
+    accuracy = [correct_pred / total_predictions if total_predictions > 0 else 0 for correct_pred in correct_predictions]
+    induction_position_accuracy = {}
+    induction_position_loss = {}
+    for i in range(4):
+        induction_position_accuracy[f"pattern_{i + 1}"] = accuracy[i]
+        induction_position_loss[f"pattern_{i + 1}"] = loss[i]
+        print(f"Induction-position accuracy for pattern {i + 1}: {accuracy[i] * 100:.2f}%")
+        print(f"Induction-position loss for pattern {i + 1}: {loss[i]:.4f}")
 
-def analyze_model(model, num_samples: int = 1000, seq_length: int = CONTEXT_LENGTH) -> None:
+    return overall_accuracy, overall_loss, induction_position_accuracy, induction_position_loss
+
+def analyze_model(
+        model: AttentionModel,
+        num_samples: int = 1000,
+        seq_length: int = CONTEXT_LENGTH) -> None:
     """
     Analyze the performance of the model on next-token prediction and induction positions.
 
@@ -66,16 +78,12 @@ def analyze_model(model, num_samples: int = 1000, seq_length: int = CONTEXT_LENG
 
     with torch.no_grad():
         sequence = []
-        first_pattern_index = []
-        second_pattern_index = []
         pattern_list = []
-
+        pattern_length = CONTEXT_LENGTH // 4
         for i in range(num_samples):
-            prefix, pattern, gap, suffix = generate_sequence_parts(seq_length, repeated=REPEATED)
-            first_pattern_index.append(len(prefix))
-            second_pattern_index.append(len(prefix) + len(pattern) + len(gap))
+            pattern = generate_random_token(pattern_length, repeated=REPEATED)
             pattern_list.append(pattern)
-            sequence += prefix + pattern + gap + pattern + suffix
+            sequence += pattern * 4
         inputs = torch.tensor(sequence, dtype=torch.long).view(num_samples, seq_length) # (num_samples, seq_length)
         targets = inputs[:, 1:] # Shifted target for next token prediction
         inputs = inputs[:, :-1]
@@ -85,17 +93,17 @@ def analyze_model(model, num_samples: int = 1000, seq_length: int = CONTEXT_LENG
 
         print("Experiment 1: Accuracy and loss of the model in predicting the next token and induction positions.")
         print("------------------------------------------------------------")
-        next_token_accuracy, next_token_loss, induction_position_accuracy, induction_position_loss = acc_and_loss(logits, targets, num_samples, second_pattern_index, pattern_list)
+        next_token_accuracy, next_token_loss, induction_position_accuracy, induction_position_loss = acc_and_loss(logits, targets, num_samples, pattern_list)
         metrics["next_token_accuracy"] = next_token_accuracy
         metrics["next_token_loss"] = next_token_loss
-        metrics["induction_position_accuracy"] = induction_position_accuracy
+        metrics["induction_position_accuracy"]= induction_position_accuracy
         metrics["induction_position_loss"] = induction_position_loss
 
         # Indicate which positions contribute to attentions head the most
         print("\nExperiment 2: Attention weights analysis for each layer and head.")
         print("------------------------------------------------------------")
         attention_weights = outputs["attention_weights"] # (num_samples, N_HEADS, seq_length - 1, seq_length - 1) * N_LAYERS
-        copying_head = {"layer": None, "head": None, "attention_average": 0}
+        same_token_head = {"layer": None, "head": None, "attention_average": 0}
         induction_head = {"layer": None, "head": None, "attention_average": 0}
         
         for layer in range(N_LAYERS):
@@ -103,22 +111,21 @@ def analyze_model(model, num_samples: int = 1000, seq_length: int = CONTEXT_LENG
             for head in range(N_HEADS):
                 same_token_attention = 0
                 next_token_attention = 0
-                total_pattern = 0
-                for i in range(num_samples):
-                    first_start = first_pattern_index[i]
-                    second_start = second_pattern_index[i]
-                    pattern = pattern_list[i]
-                    for j in range(len(pattern) - 1):
-                        same_token_attention += attention_weights[layer][i, head, second_start + j, first_start + j].item()
-                        next_token_attention += attention_weights[layer][i, head, second_start + j, first_start + j + 1].item()
-                    total_pattern += len(pattern) - 1
+                for i in range(len(pattern) - 1):
+                    for j in range(3):
+                        query = pattern_length * (j + 1) + i
+                        prev = pattern_length * j + i
+
+                        same_token_attention += attention_weights[layer][:, head, query, prev].sum().item()
+                        next_token_attention += attention_weights[layer][:, head, query, prev + 1].sum().item()
+                total_pattern = (len(pattern) - 1) * num_samples * 3
                 same_token_attention /= total_pattern
                 next_token_attention /= total_pattern
 
-                if same_token_attention > copying_head["attention_average"]:
-                    copying_head["layer"] = layer
-                    copying_head["head"] = head
-                    copying_head["attention_average"] = same_token_attention
+                if same_token_attention > same_token_head["attention_average"]:
+                    same_token_head["layer"] = layer
+                    same_token_head["head"] = head
+                    same_token_head["attention_average"] = same_token_attention
                 if next_token_attention > induction_head["attention_average"]:
                     induction_head["layer"] = layer
                     induction_head["head"] = head
@@ -130,30 +137,32 @@ def analyze_model(model, num_samples: int = 1000, seq_length: int = CONTEXT_LENG
                     "next_token_attention": next_token_attention
                 }
         print("\nHighlights:")
-        print(f"Copying head: Layer {copying_head['layer']}, Head {copying_head['head']}, Attention average: {copying_head['attention_average']:.4f}")
+        print(f"Same-token head: Layer {same_token_head['layer']}, Head {same_token_head['head']}, Attention average: {same_token_head['attention_average']:.4f}")
         print(f"Induction head: Layer {induction_head['layer']}, Head {induction_head['head']}, Attention average: {induction_head['attention_average']:.4f}")
 
         # Cut the model at the copying head and induction head and analyze the performance
         print("\nExperiment 3: Analyzing the performance of the model when cutting at the copying head or induction head.")
         print("------------------------------------------------------------")
         metrics["ablation_studies"] = {}
-        metrics["ablation_studies"]["copying_head"] = {}
-        print(f"Cutting at copying head: Layer {copying_head['layer']}, Head {copying_head['head']}")
-        outputs = model(inputs, ablate_heads=[(copying_head["layer"], copying_head["head"])])
+        metrics["ablation_studies"]["same_token_head"] = {}
+        print(f"Cutting at same-token head: Layer {same_token_head['layer']}, Head {same_token_head['head']}")
+        outputs = model(inputs, ablate_heads=[(same_token_head["layer"], same_token_head["head"])])
         logits = outputs["logits"]
 
-        next_token_accuracy, next_token_loss, induction_position_accuracy, induction_position_loss = acc_and_loss(logits, targets, num_samples, second_pattern_index, pattern_list)
-        metrics["ablation_studies"]["copying_head"]["next_token_accuracy"] = next_token_accuracy
-        metrics["ablation_studies"]["copying_head"]["next_token_loss"] = next_token_loss
-        metrics["ablation_studies"]["copying_head"]["induction_position_accuracy"] = induction_position_accuracy
-        metrics["ablation_studies"]["copying_head"]["induction_position_loss"] = induction_position_loss
+        next_token_accuracy, next_token_loss, induction_position_accuracy, induction_position_loss = acc_and_loss(logits, targets, num_samples, pattern_list)
+        metrics["ablation_studies"]["same_token_head"]["layer_head"] = (same_token_head["layer"], same_token_head["head"])
+        metrics["ablation_studies"]["same_token_head"]["next_token_accuracy"] = next_token_accuracy
+        metrics["ablation_studies"]["same_token_head"]["next_token_loss"] = next_token_loss
+        metrics["ablation_studies"]["same_token_head"]["induction_position_accuracy"] = induction_position_accuracy
+        metrics["ablation_studies"]["same_token_head"]["induction_position_loss"] = induction_position_loss
 
         metrics["ablation_studies"]["induction_head"] = {}
         print(f"\nCutting at induction head: Layer {induction_head['layer']}, Head {induction_head['head']}")
         outputs = model(inputs, ablate_heads=[(induction_head["layer"], induction_head["head"])])
         logits = outputs["logits"]
 
-        next_token_accuracy, next_token_loss, induction_position_accuracy, induction_position_loss = acc_and_loss(logits, targets, num_samples, second_pattern_index, pattern_list)
+        next_token_accuracy, next_token_loss, induction_position_accuracy, induction_position_loss = acc_and_loss(logits, targets, num_samples, pattern_list)
+        metrics["ablation_studies"]["induction_head"]["layer_head"] = (induction_head["layer"], induction_head["head"])
         metrics["ablation_studies"]["induction_head"]["next_token_accuracy"] = next_token_accuracy
         metrics["ablation_studies"]["induction_head"]["next_token_loss"] = next_token_loss
         metrics["ablation_studies"]["induction_head"]["induction_position_accuracy"] = induction_position_accuracy
@@ -161,7 +170,6 @@ def analyze_model(model, num_samples: int = 1000, seq_length: int = CONTEXT_LENG
 
     with open(get_metrics_filename(DIR_NAME), 'w') as f:
         json.dump(metrics, f, indent=4)
-
 
 if __name__ == "__main__":
     model = AttentionModel()

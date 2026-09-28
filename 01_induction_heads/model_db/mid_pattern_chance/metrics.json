@@ -1,0 +1,94 @@
+{
+    "next_token_accuracy": 0.11385714285714285,
+    "next_token_loss": 4.589054584503174,
+    "induction_position_accuracy": {
+        "pattern_1": 0.010133333333333333,
+        "pattern_2": 0.334,
+        "pattern_3": 0.1122,
+        "pattern_4": 6.666666666666667e-05
+    },
+    "induction_position_loss": {
+        "pattern_1": 4.605614185333252,
+        "pattern_2": 3.141223907470703,
+        "pattern_3": 4.620962142944336,
+        "pattern_4": 5.975520610809326
+    },
+    "layer_0_attention": {
+        "head_0": {
+            "same_token_attention": 4.771874410657779e-06,
+            "next_token_attention": 4.293695773438822e-07
+        },
+        "head_1": {
+            "same_token_attention": 0.01870539859832043,
+            "next_token_attention": 0.016580892639398614
+        },
+        "head_2": {
+            "same_token_attention": 0.01455504176619966,
+            "next_token_attention": 0.014668217426769884
+        },
+        "head_3": {
+            "same_token_attention": 0.013134889762402307,
+            "next_token_attention": 0.014605092356561907
+        }
+    },
+    "layer_1_attention": {
+        "head_0": {
+            "same_token_attention": 0.019797705348332723,
+            "next_token_attention": 0.015038768219947814
+        },
+        "head_1": {
+            "same_token_attention": 0.24184038144131692,
+            "next_token_attention": 0.03969586535746944
+        },
+        "head_2": {
+            "same_token_attention": 0.22019274112881862,
+            "next_token_attention": 0.04218828200237645
+        },
+        "head_3": {
+            "same_token_attention": 0.10912172752550768,
+            "next_token_attention": 0.030448377268992483
+        }
+    },
+    "ablation_studies": {
+        "same_token_head": {
+            "layer_head": [
+                1,
+                1
+            ],
+            "next_token_accuracy": 0.07253968253968254,
+            "next_token_loss": 4.966944217681885,
+            "induction_position_accuracy": {
+                "pattern_1": 0.011333333333333334,
+                "pattern_2": 0.221,
+                "pattern_3": 0.058866666666666664,
+                "pattern_4": 0.00013333333333333334
+            },
+            "induction_position_loss": {
+                "pattern_1": 4.853757381439209,
+                "pattern_2": 3.7142415046691895,
+                "pattern_3": 4.921327590942383,
+                "pattern_4": 6.381530284881592
+            }
+        },
+        "induction_head": {
+            "layer_head": [
+                1,
+                2
+            ],
+            "next_token_accuracy": 0.06995238095238095,
+            "next_token_loss": 4.976780414581299,
+            "induction_position_accuracy": {
+                "pattern_1": 0.009466666666666667,
+                "pattern_2": 0.21573333333333333,
+                "pattern_3": 0.0566,
+                "pattern_4": 6.666666666666667e-05
+            },
+            "induction_position_loss": {
+                "pattern_1": 4.896219253540039,
+                "pattern_2": 3.7274434566497803,
+                "pattern_3": 4.9178314208984375,
+                "pattern_4": 6.364750862121582
+            }
+        }
+    }
+}
